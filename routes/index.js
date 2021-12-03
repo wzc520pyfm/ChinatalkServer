@@ -4,12 +4,12 @@ const connection = require('../mysql/dbConnection');
 const config = require('../config/config');
 
 
-// 创建新用户--注册
+// 创建新用户--注册--传入Username和Userpsd  正常工作
 router.post('/newUser', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { Username, Userpsd} = req.body;
+  const { Username, Userpsd, Userphone} = req.query;
   // 定义sql语句
-  const sql = `INSERT INTO user( Username, Userpsd) VALUES("${Username}","${Userpsd}");`;
+  const sql = `INSERT INTO user( Username, Userpsd, Userphone) VALUES("${Username}","${Userpsd}","${Userphone}");`;
   connection.query(sql, (err, results, fields) => {
     if (err) {
       // 发生错误回传错误提示
@@ -31,11 +31,11 @@ router.post('/newUser', (req, res, next) => {
   });
 });
 
-// 登录
+// 登录---正常工作--传入Username和Userpsd
 router.post('/Login', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const {Userpsd} = req.body;
-  // 定义sql语句
+  const {Userpsd} = req.query;
+  // 定义sql语句---查表有问题, 不应该直接根据密码查表!!!
   const sql = `SELECT * FROM user WHERE Userpsd=${Userpsd}`;
   connection.query(sql, (err, results, fields) => {
     if (err) {
@@ -52,12 +52,12 @@ router.post('/Login', (req, res, next) => {
   });
 });
 
-// 更改用户密码
+// 更改用户密码---传入Uno和Userpsd--正常工作
 router.post('/updatePsd', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { Uno, Username, Userpsd } = req.body;
+  const { Userphone, Username, Userpsd } = req.query;
   // 定义sql语句
-  const sql = `UPDATE User SET Userpsd="${Userpsd}" WHERE Uno = ${Uno}`;
+  const sql = `UPDATE User SET Userpsd="${Userpsd}" WHERE Userphone = ${Userphone}`;
   connection.query(sql, (err, results, fields) => {
     if (err) {
       // 发生错误回传错误提示
@@ -79,10 +79,10 @@ router.post('/updatePsd', (req, res, next) => {
 });
 
 
-// 查询所有单词---单词解释题目---真题测试
+// 查询所有单词---单词解释题目---真题测试-正常工作
 router.post('/findAllWords', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { user } = req.body;
+  const { user } = req.query;
   // 定义sql语句
   const sql = `SELECT * FROM word `;
   connection.query(sql, (err, results, fields) => {
@@ -100,10 +100,12 @@ router.post('/findAllWords', (req, res, next) => {
   });
 });
 
-// 查询所有词性选择题---关键字题目----select题
+
+
+// 查询所有词性选择题---关键字题目----select题--正常工作
 router.post('/findAllSelectQues', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { user } = req.body;
+  const { user } = req.query;
   // 定义sql语句
   const sql = `SELECT * FROM select_ques `;
   connection.query(sql, (err, results, fields) => {
@@ -143,12 +145,62 @@ router.post('/findAllCollect', (req, res, next) => {
   });
 });
 
-// 查询所有复习单词-----查询所有错题---查询uno为1的,代表1用户做错的
+// 新增错题--传入Uno(用户id)和q_id(题目id) --仅限趣味答题--正常工作
+router.post('/collect', (req, res, next) => {
+  const resData = JSON.parse(JSON.stringify(config.resJson));
+  const { Uno, q_id} = req.query;
+  // 定义sql语句
+  const sql = `INSERT INTO collect( Uno, q_id) VALUES("${Uno}","${q_id}");`;
+  connection.query(sql, (err, results, fields) => {
+    if (err) {
+      // 发生错误回传错误提示
+      resData.retcode = -1;
+      resData.error = err.message;
+      res.send(resData);
+    } else {
+      // 数据返回
+      console.log(results);
+      if (results.affectedRows === 1) {
+        // 插入成功
+        res.send(resData);
+      } else {
+        // 插入失败
+        resData.retcode = -1;
+        res.send(resData);
+      }
+    }
+  });
+});
+
+
+
+// 查询特定用户的所有错题id---查询Uno为1的,代表1用户做错的--正常工作
 router.post('/findCollect', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { Uno } = req.body;
+  const { Uno } = req.query;
   // 定义sql语句
   const sql = `SELECT * FROM collect where Uno=${Uno} `;
+  connection.query(sql, (err, results, fields) => {
+    if (err) {
+      // 发生错误回传错误提示
+      resData.retcode = -1;
+      resData.error = err.message;
+      res.send(resData);
+    } else {
+      // 数据返回
+      console.log(results);
+      resData.obj.list = results;
+      res.send(resData);
+    }
+  });
+});
+
+//查询特定用户的所有错题详细信息列表
+router.post('/findUserCollects', (req, res, next) => {
+  const resData = JSON.parse(JSON.stringify(config.resJson));
+  const { Uno } = req.query;
+  // 定义sql语句
+  const sql = `SELECT game_ques.* FROM collect,game_ques where collect.q_id=game_ques.q_id AND Uno=${Uno} `;
   connection.query(sql, (err, results, fields) => {
     if (err) {
       // 发生错误回传错误提示
@@ -227,9 +279,7 @@ router.post('/findAllExamThree', (req, res, next) => {
   });
 });
 
-
-
-// 加入收藏-----加入错题
+// 加入收藏-----加入错题----停用
 router.post('/newWord', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
   const { Cword, Uno} = req.body;
@@ -257,12 +307,12 @@ router.post('/newWord', (req, res, next) => {
 });
 
 
-// 取消收藏----将错题删除---删除某一个错题
+// 取消收藏----将错题删除---删除某一个错题--正常工作
 router.post('/cancleCollect', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { Cno } = req.body;
+  const { Uno, q_id } = req.query;
   // 定义sql语句
-  const sql = `DELETE FROM collect WHERE Cno = ${Cno}`;
+  const sql = `DELETE FROM collect WHERE Uno = ${Uno} AND q_id = ${q_id}`;
   connection.query(sql, (err, results, fields) => {
     if (err) {
       // 发生错误回传错误提示
@@ -283,10 +333,10 @@ router.post('/cancleCollect', (req, res, next) => {
 });
 
 
-// 查询所有看图识物题
+// 查询所有看图识物题--正常工作
 router.post('/findGame', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { Uno } = req.body;
+  const { Uno } = req.query;
   // 定义sql语句
   const sql = `SELECT * FROM game_ques `;
   connection.query(sql, (err, results, fields) => {
@@ -304,12 +354,12 @@ router.post('/findGame', (req, res, next) => {
   });
 });
 
-//查询指定看图识物题目的答案--暂不使用
-router.post('/findGameAnsw', (req, res, next) => {
+//查询指定的一个看图识物题目--正常工作
+router.post('/findOneGame', (req, res, next) => {
   const resData = JSON.parse(JSON.stringify(config.resJson));
-  const { q_id } = req.body;
+  const { q_id } = req.query;
   // 定义sql语句
-  const sql = `SELECT * FROM game_answ where q_id=${q_id} `;
+  const sql = `SELECT * FROM game_ques where q_id=${q_id} `;
   connection.query(sql, (err, results, fields) => {
     if (err) {
       // 发生错误回传错误提示
